@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+    Author: Miroslava Milcheva
+    Description:
+    The file defines the settings for the app:
+    the permissions, the main activity that starts first and the required features.
+-->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Ask the user for camera access -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Let Android know this app needs access to any type of camera -->
+    <uses-feature android:name="android.hardware.camera.any" />
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.ObjectDetectionAndAssistance"
+        tools:targetApi="31">
+
+        <!-- The first screen the user will see -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+
+            <!-- Starts the app when the icon is clicked -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
