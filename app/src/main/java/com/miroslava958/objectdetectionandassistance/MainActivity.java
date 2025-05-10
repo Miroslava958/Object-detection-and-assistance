@@ -16,6 +16,13 @@ import android.widget.Toast;
 import com.google.common.util.concurrent.ListenableFuture;
 import java.util.concurrent.ExecutionException;
 
+import android.content.res.AssetFileDescriptor;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import org.tensorflow.lite.Interpreter;
+
 /**
  * MainActivity is the entry point of the Android application.
  * It initialises the layout, requests runtime camera permissions, and
@@ -34,6 +41,7 @@ public class MainActivity extends AppCompatActivity {
 
     // PreviewView is the UI component that displays the camera feed
     private PreviewView previewView;
+    private Interpreter tflite;
     /**
      * Called when the activity is first created.
      * Sets the layout, requests camera permission if needed, and initializes the camera preview.
@@ -42,6 +50,22 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        try {
+            // Load model from assets
+            AssetFileDescriptor fileDescriptor = getAssets().openFd("detect.tflite");
+            FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
+            FileChannel fileChannel = inputStream.getChannel();
+            long startOffset = fileDescriptor.getStartOffset();
+            long declaredLength = fileDescriptor.getDeclaredLength();
+            MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+
+            // Initialize interpreter
+            tflite = new Interpreter(buffer);
+            Toast.makeText(this, "Model loaded successfully!", Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            e.printStackTrace();
+            Toast.makeText(this, "Failed to load model", Toast.LENGTH_SHORT).show();
+        }
 
         // Check if the app has permission to access the camera, if not asks the user to grant it
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {

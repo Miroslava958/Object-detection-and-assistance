@@ -6,6 +6,10 @@ android {
     namespace 'com.miroslava958.objectdetectionandassistance'
     compileSdk 35
 
+    aaptOptions {
+        noCompress "tflite"
+    }
+
     defaultConfig {
         applicationId "com.miroslava958.objectdetectionandassistance"
         minSdk 21
@@ -29,7 +33,6 @@ android {
 }
 
 dependencies {
-
     implementation libs.appcompat
     implementation libs.material
     implementation libs.activity
@@ -42,4 +45,10 @@ dependencies {
     implementation 'androidx.camera:camera-lifecycle:1.1.0'
     implementation 'androidx.camera:camera-view:1.1.0'
     implementation 'androidx.camera:camera-core:1.1.0'
+
+    implementation libs.appcompat
+    implementation libs.material
+    implementation 'org.tensorflow:tensorflow-lite:2.11.0'
+    implementation 'org.tensorflow:tensorflow-lite-support:0.4.2'
+    implementation 'org.tensorflow:tensorflow-lite-gpu:2.11.0'
 }
