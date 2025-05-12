@@ -4,24 +4,30 @@ import android.os.Build;
 import android.os.Bundle;
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.content.res.AssetFileDescriptor;
+import android.util.Log;
+import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
-import android.util.Log;
-import android.widget.Toast;
-import com.google.common.util.concurrent.ListenableFuture;
-import java.util.concurrent.ExecutionException;
 
-import android.content.res.AssetFileDescriptor;
+import com.google.common.util.concurrent.ListenableFuture;
+
+import org.tensorflow.lite.Interpreter;
+import org.tensorflow.lite.support.common.FileUtil;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
-import org.tensorflow.lite.Interpreter;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 /**
  * MainActivity is the entry point of the Android application.
@@ -31,36 +37,46 @@ import org.tensorflow.lite.Interpreter;
  * and audio feedback to assist visually impaired users.
  *
  * Course: BSc Computing - Final year project
- * Project: Object detection and assistance program for visually impaired users
- * @author Miroslava Milcheva
- * @version 1.0
- * @since 2025-05-01
+ * Project: Object detection and assistance programme for visually impaired users
+ * Author: Miroslava Milcheva
+ * Version: 1.0
+ * Since: 2025-05-01
  */
-
 public class MainActivity extends AppCompatActivity {
-
     // PreviewView is the UI component that displays the camera feed
     private PreviewView previewView;
+    // TensorFlow Lite interpreter for running the object detection model
     private Interpreter tflite;
+    // Label list corresponding to the model's output classes
+    private List<String> labels;
+
     /**
      * Called when the activity is first created.
-     * Sets the layout, requests camera permission if needed, and initializes the camera preview.
+     * Sets the layout, requests camera permission if needed, and initialises the camera preview.
+     *
+     * @param savedInstanceState Saves state of the activity if it was previously paused or stopped
      */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Set the user interface layout for this activity
         setContentView(R.layout.activity_main);
+
         try {
-            // Load model from assets
+            // Load the pre-trained TFLite model file from the assets folder
             AssetFileDescriptor fileDescriptor = getAssets().openFd("detect.tflite");
             FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
             FileChannel fileChannel = inputStream.getChannel();
             long startOffset = fileDescriptor.getStartOffset();
             long declaredLength = fileDescriptor.getDeclaredLength();
-            MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
 
-            // Initialize interpreter
+            // Map the model file into memory and initialise the interpreter
+            MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
             tflite = new Interpreter(buffer);
+            // Load label list/object from labelmap.txt in assets
+            labels = FileUtil.loadLabels(this, "labelmap.txt");
+
+            // Notify the user that the model was loaded successfully
             Toast.makeText(this, "Model loaded successfully!", Toast.LENGTH_SHORT).show();
         } catch (IOException e) {
             e.printStackTrace();
@@ -69,8 +85,9 @@ public class MainActivity extends AppCompatActivity {
 
         // Check if the app has permission to access the camera, if not asks the user to grant it
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            //Check if the app currently has CAMERA permission
+            // Check if the app currently has CAMERA permission
             if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                // Prompt the user to grant permission
                 requestPermissions(new String[]{Manifest.permission.CAMERA}, 1001);
             }
         }
@@ -96,22 +113,31 @@ public class MainActivity extends AppCompatActivity {
             try {
                 // Get the actual camera provider
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
-
                 // Create a Preview use case
                 Preview preview = new Preview.Builder().build();
                 // Connect the preview to the PreviewView surface
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
                 // Select the back camera
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
+                // Create an instance of the custom ObjectDetector class
+                ObjectDetector analyser = new ObjectDetector(tflite, labels);
+
+                // Set up the ImageAnalysis to analyse frames from the camera
+                ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST) // use latest frame only
+                        .build();
+
+                // Set the custom analyser to handle each frame
+                imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), analyser);
                 // Unbind any previous use cases before binding new ones
                 cameraProvider.unbindAll();
-                // Bind the preview use case to the activity's lifecycle
+                // Bind the preview and analysis use cases to the activity's lifecycle
                 Camera camera = cameraProvider.bindToLifecycle(
-                        this, cameraSelector, preview);
+                        this, cameraSelector, preview, imageAnalysis);
 
             } catch (ExecutionException | InterruptedException e) {
                 // Handle any errors during camera setup
-                Log.e("CameraX", "Camera initialization failed", e);
+                Log.e("CameraX", "Camera initialisation failed", e);
                 Toast.makeText(this, "Failed to start camera", Toast.LENGTH_SHORT).show();
             }
         }, ContextCompat.getMainExecutor(this));
