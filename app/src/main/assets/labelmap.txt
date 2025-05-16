@@ -1,4 +1,4 @@
-???
+unknown_object_1
 person
 bicycle
 car
@@ -10,7 +10,7 @@ truck
 boat
 traffic light
 fire hydrant
-???
+unknown_object_2
 stop sign
 parking meter
 bench
@@ -24,11 +24,11 @@ elephant
 bear
 zebra
 giraffe
-???
+unknown_object_3
 backpack
 umbrella
-???
-???
+unknown_object_4
+unknown_object_5
 handbag
 tie
 suitcase
@@ -43,7 +43,7 @@ skateboard
 surfboard
 tennis racket
 bottle
-???
+unknown_object_6
 wine glass
 cup
 fork
@@ -64,12 +64,12 @@ chair
 couch
 potted plant
 bed
-???
+unknown_object_7
 dining table
-???
-???
+unknown_object_8
+unknown_object_9
 toilet
-???
+unknown_object_10
 tv
 laptop
 mouse
@@ -81,7 +81,7 @@ oven
 toaster
 sink
 refrigerator
-???
+unknown_object_11
 book
 clock
 vase
