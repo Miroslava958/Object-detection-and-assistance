@@ -1,9 +1,11 @@
 package com.miroslava958.objectdetectionandassistance;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.graphics.Bitmap;
 import android.media.Image;
 import android.util.Log;
+import android.widget.Toast;
 
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
@@ -31,6 +33,7 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
     private final Interpreter tflite;
     // List of labels representing object classes
     private final List<String> labels;
+    private final Context context;
 
     /**
      * Constructs the ObjectDetector with a loaded TFLite model and label list.
@@ -38,7 +41,8 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
      * @param tflite  A TensorFlow Lite Interpreter for object detection
      * @param labels  A list of class labels for interpreting detection results
      */
-    public ObjectDetector(Interpreter tflite, List<String> labels) {
+    public ObjectDetector(Context context, Interpreter tflite, List<String> labels) {
+        this.context = context;
         this.tflite = tflite;
         this.labels = labels;
     }
@@ -96,6 +100,8 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
                         int labelIndex = (int) outputClasses[0][i];
                         String label = labelIndex < labels.size() ? labels.get(labelIndex) : "Unknown";
                         Log.d("TFLite", "Detected: " + label + " (score: " + score + ")");
+                        // Show feedback on the screen
+                        Toast.makeText(context, "Detected: " + label, Toast.LENGTH_SHORT).show();
                     }
                 }
 

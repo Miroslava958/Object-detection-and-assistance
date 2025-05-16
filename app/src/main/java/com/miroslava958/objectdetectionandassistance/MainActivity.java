@@ -120,7 +120,7 @@ public class MainActivity extends AppCompatActivity {
                 // Select the back camera
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
                 // Create an instance of the custom ObjectDetector class
-                ObjectDetector analyser = new ObjectDetector(tflite, labels);
+                ObjectDetector analyser = new ObjectDetector(this, tflite, labels);
 
                 // Set up the ImageAnalysis to analyse frames from the camera
                 ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
