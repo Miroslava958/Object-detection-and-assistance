@@ -1,11 +1,12 @@
 package com.miroslava958.objectdetectionandassistance;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.RectF;
 import android.media.Image;
 import android.util.Log;
-import android.widget.Toast;
 
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
@@ -15,42 +16,49 @@ import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.Interpreter;
 import org.tensorflow.lite.support.image.TensorImage;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
  * ObjectDetector performs real-time image analysis using a TensorFlow Lite model.
- * It receives frames from CameraX, converts them into Bitmaps, runs inference,
- * and logs object detection results.
+ * It converts each camera frame into a Bitmap, runs inference, and provides
+ * Create bounding boxes and textual feedback of detected objects.
  *
  * Author: Miroslava Milcheva
  * Course: BSc Computing - Final Year Project
  */
 public class ObjectDetector implements ImageAnalysis.Analyzer {
 
-    // TensorFlow Lite interpreter used to run the model
     private final Interpreter tflite;
-    // List of labels representing object classes
     private final List<String> labels;
     private final Context context;
+    private final OverlayView overlayView;
+
+    // Expected input size for the model
+    private final int previewWidth = 300;
+    private final int previewHeight = 300;
 
     /**
-     * Constructs the ObjectDetector with a loaded TFLite model and label list.
+     * Constructs the ObjectDetector with the necessary components.
      *
-     * @param tflite  A TensorFlow Lite Interpreter for object detection
-     * @param labels  A list of class labels for interpreting detection results
+     * @param context      The app context (used for Toasts and UI updates)
+     * @param tflite       The TensorFlow Lite model interpreter
+     * @param labels       A list of label names for detected classes
+     * @param overlayView  The custom view used to draw detection bounding boxes
      */
-    public ObjectDetector(Context context, Interpreter tflite, List<String> labels) {
+    public ObjectDetector(Context context, Interpreter tflite, List<String> labels, OverlayView overlayView) {
         this.context = context;
         this.tflite = tflite;
         this.labels = labels;
+        this.overlayView = overlayView;
     }
 
     /**
-     * Called by CameraX to analise each camera frame.
+     * Called automatically by CameraX for each incoming image frame.
      *
-     * @param imageProxy The camera frame to process
+     * @param imageProxy The image frame to analyse
      */
     @Override
     public void analyze(@NonNull ImageProxy imageProxy) {
@@ -58,10 +66,10 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
     }
 
     /**
-     * Converts the image frame to a Bitmap, performs object detection using TensorFlow Lite,
-     * and logs detected labels.
+     * Converts the camera image to a Bitmap, processes it through the model,
+     * and draws bounding boxes and labels for high-confidence detections.
      *
-     * @param imageProxy The image frame received from the camera
+     * @param imageProxy The input image from CameraX
      */
     public void analyse(@NonNull ImageProxy imageProxy) {
         @SuppressLint("UnsafeOptInUsageError")
@@ -69,50 +77,66 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
 
         if (mediaImage != null) {
             try {
-                // Convert the YUV image to a Bitmap using ImageUtils
+                // Convert the YUV image to RGB Bitmap
                 Bitmap bitmap = ImageUtils.toBitmapFromYUV(mediaImage);
-                // Resize the Bitmap to the model's expected input dimensions
-                Bitmap resized = Bitmap.createScaledBitmap(bitmap, 300, 300, true);
-                // Prepare the image for TensorFlow Lite
+
+                // Resize to model input size
+                Bitmap resized = Bitmap.createScaledBitmap(bitmap, previewWidth, previewHeight, true);
                 TensorImage tensorImage = new TensorImage(DataType.UINT8);
                 tensorImage.load(resized);
 
-                // Set up output containers for model inference
-                float[][][] outputBoxes = new float[1][10][4];      // Bounding box coordinates
+                // Prepare output arrays
+                float[][][] outputBoxes = new float[1][10][4];      // Bounding boxes
                 float[][] outputScores = new float[1][10];          // Confidence scores
                 float[][] outputClasses = new float[1][10];         // Class indices
-                float[] numDetections = new float[1];               // Number of valid detections
+                float[] numDetections = new float[1];               // Number of detections
 
-                // Prepare model input and output mappings
+                // Prepare input/output for model
                 Object[] inputs = new Object[]{tensorImage.getBuffer()};
                 Map<Integer, Object> outputs = new HashMap<>();
                 outputs.put(0, outputBoxes);
                 outputs.put(1, outputClasses);
                 outputs.put(2, outputScores);
                 outputs.put(3, numDetections);
-                // Run the TensorFlow Lite model
+
+                // Run the model
                 tflite.runForMultipleInputsOutputs(inputs, outputs);
 
-                // Iterate over each detection result
+                // Collect results
+                List<DetectionResult> results = new ArrayList<>();
+
                 for (int i = 0; i < numDetections[0]; i++) {
                     float score = outputScores[0][i];
-                    if (score > 0.5) {
+                    if (score > 0.5f) {
                         int labelIndex = (int) outputClasses[0][i];
-                        String label = labelIndex < labels.size() ? labels.get(labelIndex) : "Unknown";
-                        Log.d("TFLite", "Detected: " + label + " (score: " + score + ")");
-                        // Show feedback on the screen
-                        Toast.makeText(context, "Detected: " + label, Toast.LENGTH_SHORT).show();
+                        String label = (labelIndex < labels.size()) ? labels.get(labelIndex) : "Unknown";
+
+                        float[] box = outputBoxes[0][i]; // top, left, bottom, right
+                        RectF rect = new RectF(
+                                box[1] * previewWidth,  // left
+                                box[0] * previewHeight, // top
+                                box[3] * previewWidth,  // right
+                                box[2] * previewHeight  // bottom
+                        );
+
+                        results.add(new DetectionResult(rect, label, score));
+                        Log.d("TFLite", "Detected: " + label + " (" + score + ")");
                     }
+                }
+
+                // Pass results to OverlayView
+                if (context instanceof Activity) {
+                    ((Activity) context).runOnUiThread(() -> {
+                        overlayView.setResults(results);
+                    });
                 }
 
             } catch (Exception e) {
                 Log.e("ObjectDetector", "Detection failed: " + e.getMessage(), e);
             } finally {
-                // Release the memory to free the camera
-                imageProxy.close();
+                imageProxy.close(); // Always release the image
             }
         } else {
-            Log.w("ObjectDetector", "Received null image from camera");
             imageProxy.close();
         }
     }

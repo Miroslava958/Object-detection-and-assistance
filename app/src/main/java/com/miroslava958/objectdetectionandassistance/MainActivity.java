@@ -49,6 +49,7 @@ public class MainActivity extends AppCompatActivity {
     private Interpreter tflite;
     // Label list corresponding to the model's output classes
     private List<String> labels;
+    private OverlayView overlayView;
 
     /**
      * Called when the activity is first created.
@@ -61,6 +62,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         // Set the user interface layout for this activity
         setContentView(R.layout.activity_main);
+        overlayView = findViewById(R.id.overlayView);
+        ObjectDetector analyzer = new ObjectDetector(this, tflite, labels, overlayView);
 
         try {
             // Load the pre-trained TFLite model file from the assets folder
@@ -120,7 +123,7 @@ public class MainActivity extends AppCompatActivity {
                 // Select the back camera
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
                 // Create an instance of the custom ObjectDetector class
-                ObjectDetector analyser = new ObjectDetector(this, tflite, labels);
+                ObjectDetector analyser = new ObjectDetector(this, tflite, labels, overlayView);
 
                 // Set up the ImageAnalysis to analyse frames from the camera
                 ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
