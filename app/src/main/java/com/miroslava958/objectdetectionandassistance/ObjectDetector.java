@@ -121,12 +121,12 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
                         int previewWidth = overlayView.getWidth();
                         int previewHeight = overlayView.getHeight();
 
-                        RectF rect = new RectF(
-                                box[1] * previewWidth,
-                                box[0] * previewHeight,
-                                box[3] * previewWidth,
-                                box[2] * previewHeight
-                        );
+                        float left = Math.max(0f, box[1]) * previewWidth;
+                        float top = Math.max(0f, box[0]) * previewHeight;
+                        float right = Math.min(1f, box[3]) * previewWidth;
+                        float bottom = Math.min(1f, box[2]) * previewHeight;
+
+                        RectF rect = new RectF(left, top, right, bottom);
 
                         results.add(new DetectionResult(rect, label, score));
                         Log.d("TFLite", "Detected: " + label + " (" + score + ")");
