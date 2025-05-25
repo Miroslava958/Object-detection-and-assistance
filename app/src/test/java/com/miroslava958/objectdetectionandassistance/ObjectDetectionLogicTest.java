@@ -39,10 +39,7 @@ public class ObjectDetectionLogicTest {
             int index = (int) classes[i];
 
             if (score > threshold && index >= 0 && index < labels.size()) {
-                String label = labels.get(index);
-                if (!label.toLowerCase().startsWith("unknown")) {
-                    detected.add(label);
-                }
+                detected.add(labels.get(index));
             }
         }
         return detected;
@@ -51,7 +48,7 @@ public class ObjectDetectionLogicTest {
     @Test
     public void testLabels() {
         float[] scores = {0.82f, 0.45f, 0.67f, 0.29f};
-        float[] classes = {77, 0, 3, 15};
+        float[] classes = {67, 0, 2, 15};
         List<String> detectedLabels = extractLabels(scores, classes, 0.5f);
 
         System.out.println(detectedLabels);
@@ -71,15 +68,7 @@ public class ObjectDetectionLogicTest {
     @Test
     public void testInvalidIndex() {
         float[] scores = {0.9f};
-        float[] classes = {100};
-        List<String> result = extractLabels(scores, classes, 0.5f);
-        assertTrue(result.isEmpty());
-    }
-
-    @Test
-    public void testUnknownLabel() {
-        float[] scores = {0.95f};
-        float[] classes = {0}; // "unknown_object_1"
+        float[] classes = {100}; // Invalid index
         List<String> result = extractLabels(scores, classes, 0.5f);
         assertTrue(result.isEmpty());
     }
@@ -87,7 +76,7 @@ public class ObjectDetectionLogicTest {
     @Test
     public void testValidDetections() {
         float[] scores = {0.85f, 0.92f};
-        float[] classes = {77, 3};
+        float[] classes = {67, 2}; // cell phone, car
         List<String> result = extractLabels(scores, classes, 0.5f);
         assertEquals(2, result.size());
         assertTrue(result.contains("cell phone"));
@@ -97,7 +86,7 @@ public class ObjectDetectionLogicTest {
     @Test
     public void testValidInvalidLabels() {
         float[] scores = {0.85f, 0.3f, 0.95f, 0.8f};
-        float[] classes = {77, 0, 2, 100};
+        float[] classes = {67, 0, 1, 101}; // valid, low score, valid, invalid index
         List<String> result = extractLabels(scores, classes, 0.5f);
         assertEquals(2, result.size());
         assertTrue(result.contains("cell phone"));

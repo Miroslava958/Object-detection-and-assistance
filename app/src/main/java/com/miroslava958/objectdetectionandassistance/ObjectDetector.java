@@ -36,9 +36,6 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
     private final Context context;
     private final OverlayView overlayView;
 
-    // Expected input size for the model
-    private final int previewWidth = 300;
-    private final int previewHeight = 300;
 
     /**
      * Constructs the ObjectDetector with the necessary components.
@@ -56,22 +53,13 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
     }
 
     /**
-     * Called automatically by CameraX for each incoming image frame.
-     *
-     * @param imageProxy The image frame to analyse
-     */
-    @Override
-    public void analyze(@NonNull ImageProxy imageProxy) {
-        analyse(imageProxy);
-    }
-
-    /**
      * Converts the camera image to a Bitmap, processes it through the model,
      * and draws bounding boxes and labels for high-confidence detections.
      *
      * @param imageProxy The input image from CameraX
      */
-    public void analyse(@NonNull ImageProxy imageProxy) {
+    public void analyze(@NonNull ImageProxy imageProxy) {
+        Log.d("TFLite", "analyze() called for a new frame.");
         @SuppressLint("UnsafeOptInUsageError")
         Image mediaImage = imageProxy.getImage();
 
@@ -81,14 +69,14 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
                 Bitmap bitmap = ImageUtils.toBitmapFromYUV(mediaImage);
 
                 // Resize to model input size
-                Bitmap resized = Bitmap.createScaledBitmap(bitmap, previewWidth, previewHeight, true);
+                Bitmap resized = Bitmap.createScaledBitmap(bitmap, 320, 320, true);
                 TensorImage tensorImage = new TensorImage(DataType.UINT8);
                 tensorImage.load(resized);
 
                 // Prepare output arrays
-                float[][][] outputBoxes = new float[1][10][4];      // Bounding boxes
-                float[][] outputScores = new float[1][10];          // Confidence scores
-                float[][] outputClasses = new float[1][10];         // Class indices
+                float[][][] outputBoxes = new float[1][25][4];      // Bounding boxes
+                float[][] outputScores = new float[1][25];          // Confidence scores
+                float[][] outputClasses = new float[1][25];         // Class indices
                 float[] numDetections = new float[1];               // Number of detections
 
                 // Prepare input/output for model
@@ -102,21 +90,42 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
                 // Run the model
                 tflite.runForMultipleInputsOutputs(inputs, outputs);
 
+                // Log raw model output to check if inference is working
+                Log.d("TFLite", "numDetections: " + numDetections[0]);
+
+                if (outputScores[0][0] > 0) {
+                    Log.d("TFLite", "First detection - Score: " + outputScores[0][0] +
+                            ", Class: " + outputClasses[0][0]);
+                } else {
+                    Log.d("TFLite", "No high-confidence detections in this frame.");
+                }
                 // Collect results
                 List<DetectionResult> results = new ArrayList<>();
+
+                Log.d("Output", "Model returned numDetections: " + numDetections[0]);
 
                 for (int i = 0; i < numDetections[0]; i++) {
                     float score = outputScores[0][i];
                     if (score > 0.5f) {
                         int labelIndex = (int) outputClasses[0][i];
-                        String label = (labelIndex < labels.size()) ? labels.get(labelIndex) : "Unknown";
+                        String label = (labelIndex >= 0 && labelIndex < labels.size()) ? labels.get(labelIndex) : "Unknown";
+
+                        Log.d("Detection", "Class index: " + labelIndex + ", Label: " + label + ", Score: " + score);
 
                         float[] box = outputBoxes[0][i]; // top, left, bottom, right
+
+                        Log.d("BoxDebug", "Raw box: top=" + box[0] + ", left=" + box[1] + ", bottom=" + box[2] + ", right=" + box[3]);
+                        Log.d("BoxDebug", "Label: " + label + " Score: " + score);
+
+                        // Scale the coordinates to match the bitmap size
+                        int previewWidth = overlayView.getWidth();
+                        int previewHeight = overlayView.getHeight();
+
                         RectF rect = new RectF(
-                                box[1] * previewWidth,  // left
-                                box[0] * previewHeight, // top
-                                box[3] * previewWidth,  // right
-                                box[2] * previewHeight  // bottom
+                                box[1] * previewWidth,
+                                box[0] * previewHeight,
+                                box[3] * previewWidth,
+                                box[2] * previewHeight
                         );
 
                         results.add(new DetectionResult(rect, label, score));
@@ -137,7 +146,7 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
                 imageProxy.close(); // Always release the image
             }
         } else {
-            imageProxy.close();
+            imageProxy.close(); // Safeguard if mediaImage is null
         }
     }
 }

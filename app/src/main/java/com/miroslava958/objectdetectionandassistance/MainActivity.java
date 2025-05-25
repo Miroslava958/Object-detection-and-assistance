@@ -19,6 +19,7 @@ import androidx.core.content.ContextCompat;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.Interpreter;
 import org.tensorflow.lite.support.common.FileUtil;
 
@@ -26,6 +27,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
@@ -62,12 +64,15 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         // Set the user interface layout for this activity
         setContentView(R.layout.activity_main);
+
+        // Link the OverlayView from layout to the variable
         overlayView = findViewById(R.id.overlayView);
-        ObjectDetector analyzer = new ObjectDetector(this, tflite, labels, overlayView);
+        // Link the PreviewView from layout to the variable
+        previewView = findViewById(R.id.previewView);
 
         try {
             // Load the pre-trained TFLite model file from the assets folder
-            AssetFileDescriptor fileDescriptor = getAssets().openFd("detect.tflite");
+            AssetFileDescriptor fileDescriptor = getAssets().openFd("efficientdet_lite0.tflite");
             FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
             FileChannel fileChannel = inputStream.getChannel();
             long startOffset = fileDescriptor.getStartOffset();
@@ -76,6 +81,12 @@ public class MainActivity extends AppCompatActivity {
             // Map the model file into memory and initialise the interpreter
             MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
             tflite = new Interpreter(buffer);
+
+            int[] inputShape = tflite.getInputTensor(0).shape(); // [1, 320, 320, 3]
+            DataType inputType = tflite.getInputTensor(0).dataType(); // UINT8 or FLOAT32
+
+            Log.d("ModelInput", "Shape: " + Arrays.toString(inputShape) + ", Type: " + inputType);
+
             // Load label list/object from labelmap.txt in assets
             labels = FileUtil.loadLabels(this, "labelmap.txt");
 
@@ -95,8 +106,6 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        // Link the PreviewView from layout to the variable
-        previewView = findViewById(R.id.previewView);
         // Start the camera preview
         startCamera();
     }
@@ -131,7 +140,8 @@ public class MainActivity extends AppCompatActivity {
                         .build();
 
                 // Set the custom analyser to handle each frame
-                imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), analyser);
+                ObjectDetector analyzer = new ObjectDetector(this, tflite, labels, overlayView);
+                imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), analyzer);
                 // Unbind any previous use cases before binding new ones
                 cameraProvider.unbindAll();
                 // Bind the preview and analysis use cases to the activity's lifecycle

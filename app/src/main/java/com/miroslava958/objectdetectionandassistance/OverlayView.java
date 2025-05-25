@@ -65,6 +65,8 @@ public class OverlayView extends View {
 
             // Draw the label slightly above the top-left of the box
             canvas.drawText(result.getLabel(), box.left + 10, box.top - 10, paint);
+
+            android.util.Log.d("Overlay", "Drawing " + result.getLabel() + " at " + box.toString());
         }
     }
 }
