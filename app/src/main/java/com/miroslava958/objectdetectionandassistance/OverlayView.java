@@ -8,6 +8,8 @@ import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.View;
 
+import androidx.annotation.NonNull;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,6 +23,10 @@ import java.util.List;
 public class OverlayView extends View {
     // List of detection results on the view
     private List<DetectionResult> results = new ArrayList<>();
+    // Paint for drawing the bounding boxes
+    private final Paint boxPaint = new Paint();
+    // Paint for drawing the text labels
+    private final Paint textPaint = new Paint();
 
     /**
      * Constructor used when creating the view from layout.
@@ -30,11 +36,26 @@ public class OverlayView extends View {
      */
     public OverlayView(Context context, AttributeSet attrs) {
         super(context, attrs);
+
+        // Set up paint for bounding boxes
+        boxPaint.setStyle(Paint.Style.STROKE);
+        boxPaint.setStrokeWidth(6); // Thick border for better visibility
+        boxPaint.setColor(Color.YELLOW); // High contrast color
+        boxPaint.setAntiAlias(true); // Smooth edges
+
+        // Set up paint for labels
+        textPaint.setStyle(Paint.Style.FILL);
+        textPaint.setColor(Color.WHITE); // Readable against most backgrounds
+        textPaint.setTextSize(54); // Large text for readability
+        textPaint.setFakeBoldText(true); // Bold for emphasis
+        textPaint.setShadowLayer(6.0f, 2.0f, 2.0f, Color.BLACK); // Add shadow for contrast
+        textPaint.setAntiAlias(true); // Smooth text edges
     }
+
     /**
      * Sets the list of results to be drawn.
      *
-     * @param results A list of DetectionResult objects to be visualise
+     * @param results A list of DetectionResult objects to be visualised
      */
     public void setResults(List<DetectionResult> results) {
         this.results = results;
@@ -47,26 +68,19 @@ public class OverlayView extends View {
      * @param canvas The Canvas to draw onto
      */
     @Override
-    protected void onDraw(Canvas canvas) {
+    protected void onDraw(@NonNull Canvas canvas) {
         super.onDraw(canvas);
-
-        Paint paint = new Paint();
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(6); // Thick border for visibility
-        paint.setColor(Color.YELLOW); // High contrast colour
-        paint.setTextSize(48);
-        paint.setTextAlign(Paint.Align.LEFT);
 
         for (DetectionResult result : results) {
             RectF box = result.getBoundingBox();
-
             // Draw the bounding box
-            canvas.drawRect(box, paint);
+            canvas.drawRect(box, boxPaint);
 
-            // Draw the label slightly above the top-left of the box
-            canvas.drawText(result.getLabel(), box.left + 10, box.top - 10, paint);
+            // Draw the label slightly above the top-left of the box to avoid going off-screen)
+            float labelY = Math.max(box.top - 15, 50); // Prevent text from going above the screen
+            canvas.drawText(result.getLabel(), box.left + 10, labelY, textPaint);
 
-            android.util.Log.d("Overlay", "Drawing " + result.getLabel() + " at " + box.toString());
+            android.util.Log.d("Overlay", "Drawing " + result.getLabel() + " at " + box);
         }
     }
 }
