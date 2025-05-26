@@ -35,6 +35,8 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
     private final List<String> labels;
     private final Context context;
     private final OverlayView overlayView;
+    private final TextToSpeechManager ttsManager;
+
 
 
     /**
@@ -45,11 +47,12 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
      * @param labels       A list of label names for detected classes
      * @param overlayView  The custom view used to draw detection bounding boxes
      */
-    public ObjectDetector(Context context, Interpreter tflite, List<String> labels, OverlayView overlayView) {
+    public ObjectDetector(Context context, Interpreter tflite, List<String> labels, OverlayView overlayView, TextToSpeechManager ttsManager) {
         this.context = context;
         this.tflite = tflite;
         this.labels = labels;
         this.overlayView = overlayView;
+        this.ttsManager = ttsManager;
     }
 
     /**
@@ -130,6 +133,8 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
 
                         results.add(new DetectionResult(rect, label, score));
                         Log.d("TFLite", "Detected: " + label + " (" + score + ")");
+
+                        ttsManager.speak(label);
                     }
                 }
 

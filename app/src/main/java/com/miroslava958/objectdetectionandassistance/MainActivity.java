@@ -52,6 +52,8 @@ public class MainActivity extends AppCompatActivity {
     // Label list corresponding to the model's output classes
     private List<String> labels;
     private OverlayView overlayView;
+    private ObjectDetector objectDetector;
+    private TextToSpeechManager ttsManager;
 
     /**
      * Called when the activity is first created.
@@ -69,6 +71,9 @@ public class MainActivity extends AppCompatActivity {
         overlayView = findViewById(R.id.overlayView);
         // Link the PreviewView from layout to the variable
         previewView = findViewById(R.id.previewView);
+
+        ttsManager = new TextToSpeechManager(this);
+        objectDetector = new ObjectDetector(this, tflite, labels, overlayView, ttsManager);
 
         try {
             // Load the pre-trained TFLite model file from the assets folder
@@ -132,7 +137,7 @@ public class MainActivity extends AppCompatActivity {
                 // Select the back camera
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
                 // Create an instance of the custom ObjectDetector class
-                ObjectDetector analyser = new ObjectDetector(this, tflite, labels, overlayView);
+                ObjectDetector analyser = new ObjectDetector(this, tflite, labels, overlayView, ttsManager);
 
                 // Set up the ImageAnalysis to analyse frames from the camera
                 ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
@@ -140,7 +145,7 @@ public class MainActivity extends AppCompatActivity {
                         .build();
 
                 // Set the custom analyser to handle each frame
-                ObjectDetector analyzer = new ObjectDetector(this, tflite, labels, overlayView);
+                ObjectDetector analyzer = new ObjectDetector(this, tflite, labels, overlayView, ttsManager);
                 imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), analyzer);
                 // Unbind any previous use cases before binding new ones
                 cameraProvider.unbindAll();
@@ -154,5 +159,13 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "Failed to start camera", Toast.LENGTH_SHORT).show();
             }
         }, ContextCompat.getMainExecutor(this));
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (ttsManager != null) {
+            ttsManager.shutdown();
+        }
+        super.onDestroy();
     }
 }
