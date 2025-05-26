@@ -134,7 +134,19 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
                         results.add(new DetectionResult(rect, label, score));
                         Log.d("TFLite", "Detected: " + label + " (" + score + ")");
 
-                        ttsManager.speak(label);
+                        // Collect all detected labels for speech and speak only new labels
+                        List<String> detectedLabels = new ArrayList<>();
+                        for (DetectionResult result : results) {
+                            detectedLabels.add(result.getLabel());
+                        }
+
+                        ttsManager.speakMultiple(detectedLabels);
+
+                        // If nothing was detected, clear spoken labels to prevent repetition
+                        if (detectedLabels.isEmpty()) {
+                            Log.d("TTS", "No detections - clearing spoken labels.");
+                            ttsManager.clearLastSpokenLabels();
+                        }
                     }
                 }
 
