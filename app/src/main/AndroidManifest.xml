@@ -12,8 +12,6 @@
 
     <!-- Ask the user for camera access -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <!-- Ask the user for Audio access -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <!-- Let Android know this app needs access to any type of camera -->
     <uses-feature android:name="android.hardware.camera.any" />
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>

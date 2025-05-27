@@ -6,6 +6,7 @@ import android.Manifest;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.util.Log;
+import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -15,7 +16,6 @@ import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -55,7 +55,6 @@ public class MainActivity extends AppCompatActivity {
     private OverlayView overlayView;
     private ObjectDetector objectDetector;
     private TextToSpeechManager ttsManager;
-    private VoiceCommandListener voiceCommandListener;
 
     /**
      * Called when the activity is first created.
@@ -76,6 +75,13 @@ public class MainActivity extends AppCompatActivity {
 
         ttsManager = new TextToSpeechManager(this);
         objectDetector = new ObjectDetector(this, tflite, labels, overlayView, ttsManager);
+
+        Button exitButton = findViewById(R.id.btnExit);
+        exitButton.setOnClickListener(v -> {
+            Toast.makeText(this, "App closing...", Toast.LENGTH_SHORT).show();
+            finish();
+        });
+
 
         try {
             // Load the pre-trained TFLite model file from the assets folder
@@ -104,24 +110,12 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(this, "Failed to load model", Toast.LENGTH_SHORT).show();
         }
 
-        // Check if the app has permission to access the camera and microphone
+        // Check if the app has permission to access the camera, if not asks the user to grant it
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            boolean needsCamera = checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED;
-            boolean needsAudio = checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED;
-
-            // If either permission is missing, request both (Android will skip already granted ones)
-            if (needsCamera || needsAudio) {
-                requestPermissions(
-                        new String[]{
-                                Manifest.permission.CAMERA,
-                                Manifest.permission.RECORD_AUDIO
-                        },
-                        1001 // Shared request code for simplicity
-                );
-            } else {
-                // If permissions already granted, start voice command listener
-                voiceCommandListener = new VoiceCommandListener(this);
-                voiceCommandListener.startListening();
+            // Check if the app currently has CAMERA permission
+            if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                // Prompt the user to grant permission
+                requestPermissions(new String[]{Manifest.permission.CAMERA}, 1001);
             }
         }
 
@@ -179,9 +173,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         if (ttsManager != null) {
             ttsManager.shutdown();
-        }
-        if (voiceCommandListener != null) {
-            voiceCommandListener.stop();
         }
         super.onDestroy();
     }
