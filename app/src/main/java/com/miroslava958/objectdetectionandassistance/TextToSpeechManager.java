@@ -21,10 +21,8 @@ public class TextToSpeechManager {
 
     private TextToSpeech tts;
     private boolean isInitialised = false;
-    private String lastSpoken = "";
-    private long lastSpokenTime = 0;
     private final Set<String> lastSpokenLabels = new HashSet<>();
-    private static final long SPEAK_DELAY_MS = 2000; // Minimum delay between speech in ms
+
 
     /**
      * Constructor that initialises the TextToSpeech engine.
@@ -55,24 +53,6 @@ public class TextToSpeechManager {
     }
 
     /**
-     * Speaks the given text aloud if TTS is initialised.
-     * Avoids repeating the same label or speaking too frequently.
-     *
-     * @param text The string to be spoken
-     */
-    public void speak(String text) {
-        long now = System.currentTimeMillis();
-
-        if (isInitialised && text != null && !text.isEmpty()) {
-            if (!text.equalsIgnoreCase(lastSpoken) || (now - lastSpokenTime > SPEAK_DELAY_MS)) {
-                tts.speak("I see a " + text, TextToSpeech.QUEUE_FLUSH, null, null);
-                lastSpoken = text;
-                lastSpokenTime = now;
-            }
-        }
-    }
-
-    /**
      * Speaks only new labels from the current detection results.
      *
      * @param currentLabels List of detected labels in the current frame
@@ -87,12 +67,14 @@ public class TextToSpeechManager {
 
         if (!currentSet.isEmpty()) {
             String toSpeak = String.join(", ", currentSet);
-            tts.speak("I see: " + toSpeak, TextToSpeech.QUEUE_FLUSH, null, null);
+            tts.speak("I see a " + toSpeak, TextToSpeech.QUEUE_ADD, null, null);
+            Log.d("TTS", "Speaking: " + toSpeak);
 
             // Update the spoken history
             lastSpokenLabels.clear();
             lastSpokenLabels.addAll(currentLabels);
         }
+        Log.d("TTS", "Last spoken labels: " + lastSpokenLabels);
     }
 
     /**
