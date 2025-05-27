@@ -1,6 +1,5 @@
 package com.miroslava958.objectdetectionandassistance;
 
-import android.os.Build;
 import android.os.Bundle;
 import android.Manifest;
 import android.content.pm.PackageManager;
@@ -9,13 +8,14 @@ import android.util.Log;
 import android.widget.Button;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
+import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import com.google.common.util.concurrent.ListenableFuture;
@@ -52,8 +52,11 @@ public class MainActivity extends AppCompatActivity {
     private Interpreter tflite;
     // Label list corresponding to the model's output classes
     private List<String> labels;
+    // Custom view that overlays bounding boxes and labels on top of the camera preview
     private OverlayView overlayView;
+    // Object detection engine that handles camera frame analysis and TFLite inference
     private ObjectDetector objectDetector;
+    // Manages text-to-speech functionality to provide spoken feedback to the user
     private TextToSpeechManager ttsManager;
 
     /**
@@ -67,60 +70,86 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         // Set the user interface layout for this activity
         setContentView(R.layout.activity_main);
-
         // Link the OverlayView from layout to the variable
         overlayView = findViewById(R.id.overlayView);
         // Link the PreviewView from layout to the variable
         previewView = findViewById(R.id.previewView);
-
+        // Initialise TextToSpeech
         ttsManager = new TextToSpeechManager(this);
+
+        // Load the model and label list
+        try (
+                // Open the TFLite model file from the assets folder
+                AssetFileDescriptor fileDescriptor = getAssets().openFd("efficientdet_lite0.tflite");
+
+                // Create input stream and channel to read the model data
+                FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
+                FileChannel fileChannel = inputStream.getChannel()
+        ) {
+            // Get the start and length of the file
+            long startOffset = fileDescriptor.getStartOffset();
+            long declaredLength = fileDescriptor.getDeclaredLength();
+            // Map the model file into memory
+            MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
+            // Initialise the TFLite interpreter with the model
+            tflite = new Interpreter(buffer);
+
+            // Get input shape and data type for debug/logging purposes
+            int[] inputShape = tflite.getInputTensor(0).shape(); // e.g. [1, 320, 320, 3]
+            DataType inputType = tflite.getInputTensor(0).dataType(); // e.g. UINT8 or FLOAT32
+            Log.d("ModelInput", "Shape: " + Arrays.toString(inputShape) + ", Type: " + inputType);
+
+            // Load the label map from assets
+            labels = FileUtil.loadLabels(this, "labelmap.txt");
+
+            // Inform the user that the model has been successfully loaded
+            Toast.makeText(this, "Model loaded successfully!", Toast.LENGTH_SHORT).show();
+
+        } catch (IOException e) {
+            // Log the error and inform the user if the model failed to load
+            Log.e("ModelLoad", "Error loading model: " + e.getMessage(), e);
+            Toast.makeText(this, "Failed to load model", Toast.LENGTH_SHORT).show();
+        }
+
+        // Create object detector only after interpreter and labels are loaded
         objectDetector = new ObjectDetector(this, tflite, labels, overlayView, ttsManager);
 
+        // Check for camera permission and request if not granted
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, 1001);
+        } else {
+            // Start camera if permission already granted
+            startCamera();
+        }
+
+        // Handle Stop App button click
         Button exitButton = findViewById(R.id.btnExit);
         exitButton.setOnClickListener(v -> {
             Toast.makeText(this, "App closing...", Toast.LENGTH_SHORT).show();
             finish();
         });
+    }
 
+    /**
+     * Called after the user responds to a permission request.
+     * If permission granted, camera is started.
+     *
+     * @param requestCode  Identifier for the permission request
+     * @param permissions  The requested permissions
+     * @param grantResults The grant results
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions,
+                                           @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        try {
-            // Load the pre-trained TFLite model file from the assets folder
-            AssetFileDescriptor fileDescriptor = getAssets().openFd("efficientdet_lite0.tflite");
-            FileInputStream inputStream = new FileInputStream(fileDescriptor.getFileDescriptor());
-            FileChannel fileChannel = inputStream.getChannel();
-            long startOffset = fileDescriptor.getStartOffset();
-            long declaredLength = fileDescriptor.getDeclaredLength();
-
-            // Map the model file into memory and initialise the interpreter
-            MappedByteBuffer buffer = fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
-            tflite = new Interpreter(buffer);
-
-            int[] inputShape = tflite.getInputTensor(0).shape(); // [1, 320, 320, 3]
-            DataType inputType = tflite.getInputTensor(0).dataType(); // UINT8 or FLOAT32
-
-            Log.d("ModelInput", "Shape: " + Arrays.toString(inputShape) + ", Type: " + inputType);
-
-            // Load label list/object from labelmap.txt in assets
-            labels = FileUtil.loadLabels(this, "labelmap.txt");
-
-            // Notify the user that the model was loaded successfully
-            Toast.makeText(this, "Model loaded successfully!", Toast.LENGTH_SHORT).show();
-        } catch (IOException e) {
-            e.printStackTrace();
-            Toast.makeText(this, "Failed to load model", Toast.LENGTH_SHORT).show();
+        if (requestCode == 1001 && grantResults.length > 0 &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            startCamera();
+        } else {
+            Toast.makeText(this, "Camera permission is required.", Toast.LENGTH_SHORT).show();
         }
-
-        // Check if the app has permission to access the camera, if not asks the user to grant it
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // Check if the app currently has CAMERA permission
-            if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                // Prompt the user to grant permission
-                requestPermissions(new String[]{Manifest.permission.CAMERA}, 1001);
-            }
-        }
-
-        // Start the camera preview
-        startCamera();
     }
 
     /**
@@ -136,39 +165,37 @@ public class MainActivity extends AppCompatActivity {
         // When the camera provider is ready, initialise the camera
         cameraProviderFuture.addListener(() -> {
             try {
-                // Get the actual camera provider
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+
                 // Create a Preview use case
                 Preview preview = new Preview.Builder().build();
-                // Connect the preview to the PreviewView surface
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
+
                 // Select the back camera
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
-                // Create an instance of the custom ObjectDetector class
-                ObjectDetector analyser = new ObjectDetector(this, tflite, labels, overlayView, ttsManager);
 
-                // Set up the ImageAnalysis to analyse frames from the camera
+                // Create ImageAnalysis and bind ObjectDetector to it
                 ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST) // use latest frame only
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
 
-                // Set the custom analyser to handle each frame
-                ObjectDetector analyzer = new ObjectDetector(this, tflite, labels, overlayView, ttsManager);
-                imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), analyzer);
+                imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), objectDetector);
+
                 // Unbind any previous use cases before binding new ones
                 cameraProvider.unbindAll();
-                // Bind the preview and analysis use cases to the activity's lifecycle
-                Camera camera = cameraProvider.bindToLifecycle(
-                        this, cameraSelector, preview, imageAnalysis);
+                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis);
 
             } catch (ExecutionException | InterruptedException e) {
-                // Handle any errors during camera setup
                 Log.e("CameraX", "Camera initialisation failed", e);
                 Toast.makeText(this, "Failed to start camera", Toast.LENGTH_SHORT).show();
             }
         }, ContextCompat.getMainExecutor(this));
     }
 
+    /**
+     * Called when the activity is destroyed.
+     * Shut down TextToSpeech and release resources.
+     */
     @Override
     protected void onDestroy() {
         if (ttsManager != null) {

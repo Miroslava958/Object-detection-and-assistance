@@ -18,7 +18,6 @@ import java.util.Set;
  * Course: BSc Computing - Final Year Project
  */
 public class TextToSpeechManager {
-
     private TextToSpeech tts;
     private boolean isInitialised = false;
     private final Set<String> lastSpokenLabels = new HashSet<>();

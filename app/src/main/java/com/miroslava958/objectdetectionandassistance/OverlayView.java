@@ -73,13 +73,15 @@ public class OverlayView extends View {
 
         for (DetectionResult result : results) {
             RectF box = result.getBoundingBox();
+
             // Draw the bounding box
             canvas.drawRect(box, boxPaint);
 
-            // Draw the label slightly above the top-left of the box to avoid going off-screen)
+            // Draw the label slightly above the top-left of the box (ensure it's visible on screen)
             float labelY = Math.max(box.top - 15, 50); // Prevent text from going above the screen
             canvas.drawText(result.getLabel(), box.left + 10, labelY, textPaint);
 
+            // Log for debugging
             android.util.Log.d("Overlay", "Drawing " + result.getLabel() + " at " + box);
         }
     }

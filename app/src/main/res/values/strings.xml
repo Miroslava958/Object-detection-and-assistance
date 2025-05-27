@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">ObjectDetectionAndAssistance</string>
+    <string name="stop_app">Stop App</string>
 </resources>

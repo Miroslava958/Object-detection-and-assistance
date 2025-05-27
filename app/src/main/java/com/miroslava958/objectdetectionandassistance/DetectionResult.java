@@ -12,10 +12,8 @@ import android.graphics.RectF;
 public class DetectionResult {
     // Rectangle defining the area of the detected object in the image
     private final RectF boundingBox;
-
     // Label of the detected object
     private final String label;
-
     // Confidence score for the detection
     private final float score;
 

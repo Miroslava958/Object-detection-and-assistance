@@ -5,6 +5,7 @@
     Description:
     The layout contains a full-screen PreviewView for displaying the live camera feed.
     It serves as the visual interface for real-time object detection and feedback.
+    Overlay for bounding boxes and visualise accessible button to stop the app.
 -->
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -38,7 +39,7 @@
         android:id="@+id/btnExit"
         android:layout_width="200dp"
         android:layout_height="100dp"
-        android:text="Stop App"
+        android:text="@string/stop_app"
         android:textSize="18sp"
         android:backgroundTint="@android:color/holo_orange_light"
         android:textColor="@android:color/black"

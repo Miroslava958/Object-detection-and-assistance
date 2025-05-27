@@ -37,8 +37,6 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
     private final OverlayView overlayView;
     private final TextToSpeechManager ttsManager;
 
-
-
     /**
      * Constructs the ObjectDetector with the necessary components.
      *
@@ -61,6 +59,7 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
      *
      * @param imageProxy The input image from CameraX
      */
+    @Override
     public void analyze(@NonNull ImageProxy imageProxy) {
         Log.d("TFLite", "analyze() called for a new frame.");
         @SuppressLint("UnsafeOptInUsageError")
@@ -102,8 +101,10 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
                 } else {
                     Log.d("TFLite", "No high-confidence detections in this frame.");
                 }
+
                 // Collect results
                 List<DetectionResult> results = new ArrayList<>();
+                List<String> detectedLabels = new ArrayList<>();  // Collect all detected labels
 
                 Log.d("Output", "Model returned numDetections: " + numDetections[0]);
 
@@ -132,22 +133,19 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
                         RectF rect = new RectF(left, top, right, bottom);
 
                         results.add(new DetectionResult(rect, label, score));
+                        detectedLabels.add(label);
+
                         Log.d("TFLite", "Detected: " + label + " (" + score + ")");
-
-                        // Collect all detected labels for speech and speak only new labels
-                        List<String> detectedLabels = new ArrayList<>();
-                        for (DetectionResult result : results) {
-                            detectedLabels.add(result.getLabel());
-                        }
-
-                        ttsManager.speakMultiple(detectedLabels);
-
-                        // If nothing was detected, clear spoken labels to prevent repetition
-                        if (detectedLabels.isEmpty()) {
-                            Log.d("TTS", "No detections - clearing spoken labels.");
-                            ttsManager.clearLastSpokenLabels();
-                        }
                     }
+                }
+
+                // Speak new object labels
+                if (!detectedLabels.isEmpty()) {
+                    ttsManager.speakMultiple(detectedLabels);
+                } else {
+                    // If nothing was detected, clear spoken labels to prevent repetition
+                    Log.d("TTS", "No detections - clearing spoken labels.");
+                    ttsManager.clearLastSpokenLabels();
                 }
 
                 // Pass results to OverlayView
