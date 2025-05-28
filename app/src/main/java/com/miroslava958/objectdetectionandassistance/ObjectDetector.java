@@ -36,6 +36,9 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
     private final Context context;
     private final OverlayView overlayView;
     private final TextToSpeechManager ttsManager;
+    // Counter for consecutive frames with no detections
+    private int noDetectionFrames = 0;
+
 
     /**
      * Constructs the ObjectDetector with the necessary components.
@@ -44,6 +47,7 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
      * @param tflite       The TensorFlow Lite model interpreter
      * @param labels       A list of label names for detected classes
      * @param overlayView  The custom view used to draw detection bounding boxes
+     * @param ttsManager  Manages text-to-speech functionality to provide spoken feedback to the user
      */
     public ObjectDetector(Context context, Interpreter tflite, List<String> labels, OverlayView overlayView, TextToSpeechManager ttsManager) {
         this.context = context;
@@ -110,7 +114,7 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
 
                 for (int i = 0; i < numDetections[0]; i++) {
                     float score = outputScores[0][i];
-                    if (score > 0.5f) {
+                    if (score > 0.7f) {
                         int labelIndex = (int) outputClasses[0][i];
                         String label = (labelIndex >= 0 && labelIndex < labels.size()) ? labels.get(labelIndex) : "Unknown";
 
@@ -141,11 +145,17 @@ public class ObjectDetector implements ImageAnalysis.Analyzer {
 
                 // Speak new object labels
                 if (!detectedLabels.isEmpty()) {
+                    noDetectionFrames = 0; // Reset counter if objects are detected
                     ttsManager.speakMultiple(detectedLabels);
                 } else {
-                    // If nothing was detected, clear spoken labels to prevent repetition
-                    Log.d("TTS", "No detections - clearing spoken labels.");
-                    ttsManager.clearLastSpokenLabels();
+                    noDetectionFrames++; // Increment if no objects detected
+
+                    // Clear last spoken labels only after 3 empty frames
+                    if (noDetectionFrames > 3) {
+                        Log.d("TTS", "Multiple empty frames - clearing spoken labels.");
+                        ttsManager.clearLastSpokenLabels();
+                        noDetectionFrames = 0; // Reset counter after clearing
+                    }
                 }
 
                 // Pass results to OverlayView
